@@ -7,6 +7,7 @@
 
 #include "SDL.h"
 #include "constant.h"
+#include "instruction.h"
 
 int cpu_init(struct cpu* cpu, char* filename) {
   FILE* game = fopen(filename, "rb");
@@ -28,12 +29,10 @@ int cpu_init(struct cpu* cpu, char* filename) {
   cpu->i = 0;
   cpu->sp = 0;
   cpu->draw = 0;
-
   cpu->sound_timer = 0;
   cpu->delay_timer = 0;
 
   srand(time(NULL));
-
   return 0;
 }
 
@@ -53,163 +52,61 @@ void cpu_cycle(struct cpu* cpu) {
   cpu_update_timers(cpu);
 }
 
-void cpu_skip(struct cpu* cpu, bool expression) {
-  if (expression) {
-    cpu->pc += 2;
-  }
-}
-
 void cpu_execute(struct cpu* cpu) {
-  enum opcode_type opcode_type = opcode_decode(&cpu->opcode);
   cpu->pc += 2;
-
-  uint8_t* vx = &cpu->v[cpu->opcode.x];
-  uint8_t* vy = &cpu->v[cpu->opcode.y];
-
-  switch (opcode_type) {
-    case CLS:
-      memset(cpu->pixels, false, sizeof(cpu->pixels));
-      break;
-    case RET:
-      cpu->pc = cpu->stack[--cpu->sp];
-      break;
-    case JP_ADDR:
-      cpu->pc = cpu->opcode.addr;
-      break;
-    case CALL_ADDR:
-      cpu->stack[cpu->sp++] = cpu->pc;
-      cpu->pc = cpu->opcode.addr;
-      break;
-    case SE_X_KK:
-      cpu_skip(cpu, *vx == cpu->opcode.kk);
-      break;
-    case SNE_X_KK:
-      cpu_skip(cpu, *vx != cpu->opcode.kk);
-      break;
-    case SE_X_Y:
-      cpu_skip(cpu, *vx == *vy);
-      break;
-    case LD_X_KK:
-      *vx = cpu->opcode.kk;
-      break;
-    case ADD_X_KK:
-      *vx += cpu->opcode.kk;
-      break;
-    case LD_X_Y:
-      *vx = *vy;
-      break;
-    case OR_X_Y:
-      *vx |= *vy;
-      break;
-    case AND_X_Y:
-      *vx &= *vy;
-      break;
-    case XOR_X_Y:
-      *vx ^= *vy;
-      break;
-    case ADD_X_Y: {
-      uint16_t result = *vx + *vy;
-      cpu->v[CARRY_REGISTER] = result > 255;
-      *vx = (uint8_t)result;
-      break;
+  uint8_t vx = cpu->v[cpu->opcode.x];
+  uint8_t vy = cpu->v[cpu->opcode.y];
+  switch (cpu->opcode.op) {
+    case 0x0:
+      switch (cpu->opcode.n) {
+        case 0x0: return cpu_clear(cpu);
+        case 0xE: return cpu_jump(cpu, cpu->stack[--cpu->sp]);
+        default:  return cpu_error(cpu);
+      }
+    case 0x1: return cpu_jump(cpu, cpu->opcode.addr);
+    case 0x2: return cpu_call(cpu, cpu->opcode.addr);
+    case 0x3: return cpu_skip(cpu, vx == cpu->opcode.kk);
+    case 0x4: return cpu_skip(cpu, vx != cpu->opcode.kk);
+    case 0x5: return cpu_skip(cpu, vx == vy);
+    case 0x6: return cpu_assign_register(cpu, cpu->opcode.x, cpu->opcode.kk);
+    case 0x7: return cpu_assign_register(cpu, cpu->opcode.x, vx + cpu->opcode.kk);
+    case 0x8:
+      switch (cpu->opcode.n) {
+        case 0x0: return cpu_assign_register(cpu, cpu->opcode.x, vy);
+        case 0x1: return cpu_assign_register(cpu, cpu->opcode.x, vx | vy);
+        case 0x2: return cpu_assign_register(cpu, cpu->opcode.x, vx & vy);
+        case 0x3: return cpu_assign_register(cpu, cpu->opcode.x, vx ^ vy);
+        case 0x4: return cpu_add_carry(cpu, vx, vy);
+        case 0x5: return cpu_subtract_borrow(cpu, vx, vy);
+        case 0x6: return cpu_shift_right(cpu);
+        case 0x7: return cpu_subtract_borrow(cpu, vy, vx);
+        case 0xE: return cpu_shift_left(cpu);
+        default:  return cpu_error(cpu);
+      }
+    case 0x9: return cpu_skip(cpu, vx != vy);
+    case 0xA: return cpu_assign_i(cpu, cpu->opcode.addr);
+    case 0xB: return cpu_jump(cpu, cpu->opcode.addr + cpu->v[0]);
+    case 0xC: return cpu_random(cpu);
+    case 0xD: return cpu_draw(cpu);
+    case 0xE:
+      switch (cpu->opcode.kk) {
+        case 0x9E: return cpu_skip(cpu, SDL_GetKeyboardState(NULL)[key_map[vx]]);
+        case 0xA1: return cpu_skip(cpu, !SDL_GetKeyboardState(NULL)[key_map[vx]]);
+        default:   return cpu_error(cpu);
+      }
+    case 0xF:
+      switch (cpu->opcode.kk) {
+        case 0x07: return cpu_assign_register(cpu, cpu->opcode.x, cpu->delay_timer);
+        case 0x0A: return cpu_wait_key_press(cpu);
+        case 0x15: return cpu_assign_delay_timer(cpu, vx);
+        case 0x18: return cpu_assign_sound_timer(cpu, vx);
+        case 0x1E: return cpu_assign_i(cpu, cpu->i + vx);
+        case 0x29: return cpu_assign_i(cpu, vx * 5);
+        case 0x33: return cpu_store_bcd(cpu);
+        case 0x55: return cpu_copy_to_memory(cpu);
+        case 0x65: return cpu_copy_from_memory(cpu);
+        default:   return cpu_error(cpu);
+      }
     }
-    case SUB_X_Y:
-      cpu->v[CARRY_REGISTER] = *vx > *vy;
-      *vx -= *vy;
-      break;
-    case SHR_X_Y:
-      cpu->v[CARRY_REGISTER] = *vx & 1;
-      *vx >>= 2;
-      break;
-    case SUBN_X_Y:
-      cpu->v[CARRY_REGISTER] = *vy > *vx;
-      *vx = *vy - *vx;
-      break;
-    case SHL_X_Y:
-      cpu->v[CARRY_REGISTER] = (bool)(*vx & 0x80);
-      *vx <<= 2;
-      break;
-    case SNE_X_Y:
-      cpu_skip(cpu, *vx != *vy);
-      break;
-    case LD_I_ADDR:
-      cpu->i = cpu->opcode.addr;
-      break;
-    case JP_0_ADDR:
-      cpu->pc = cpu->opcode.addr + cpu->v[0];
-      break;
-    case RND_X_KK:
-      *vx = (rand() % 256) & cpu->opcode.kk;
-      break;
-    case DRW_X_Y_N:
-      cpu->v[CARRY_REGISTER] = 0;
-      for (int y = 0; y < cpu->opcode.n; y++) {
-        for (int x = 0; x < 8; x++) {
-          uint8_t pixel = cpu->memory[cpu->i + y];
-          if (pixel & (0x80 >> x)) {
-            int index = (*vx + x) % SCREEN_WIDTH +
-                        ((*vy + y) % SCREEN_HEIGHT) * SCREEN_WIDTH;
-            if (cpu->pixels[index] == ON_COLOR) {
-              cpu->v[CARRY_REGISTER] = 1;
-              cpu->pixels[index] = OFF_COLOR;
-            } else {
-              cpu->pixels[index] = ON_COLOR;
-            }
-            cpu->draw = true;
-          }
-        }
-      }
-      break;
-    case SKP_X:
-      cpu_skip(cpu, SDL_GetKeyboardState(NULL)[key_map[*vx]]);
-      break;
-    case SKNP_X:
-      cpu_skip(cpu, !SDL_GetKeyboardState(NULL)[key_map[*vx]]);
-      break;
-    case LD_X_DT:
-      *vx = cpu->delay_timer;
-      break;
-    case LD_X_K:
-      cpu->pc -= 2;
-      for (int i = 0; i < 16; i++) {
-        if (SDL_GetKeyboardState(NULL)[key_map[i]]) {
-          *vx = i;
-          cpu->pc += 2;
-          break;
-        }
-      }
-      break;
-    case LD_DT_X:
-      cpu->delay_timer = *vx;
-    case LD_ST_X:
-      cpu->sound_timer = *vx;
-      break;
-    case ADD_I_X:
-      cpu->i += *vx;
-      break;
-    case LD_F_X:
-      cpu->i = 5 * *vx;
-      break;
-    case LD_B_X:
-      cpu->memory[cpu->i] = *vx / 100;
-      cpu->memory[cpu->i + 1] = (*vx / 10) % 10;
-      cpu->memory[cpu->i + 2] = *vx % 10;
-      break;
-    case LD_I_X:
-      for (int i = 0; i <= cpu->opcode.x; i++) {
-        cpu->memory[cpu->i + i] = cpu->v[i];
-      }
-      break;
-    case LD_X_I: {
-      for (int i = 0; i <= cpu->opcode.x; i++) {
-        cpu->v[i] = cpu->memory[cpu->i + i];
-      }
-      break;
-    }
-    default: {
-      fprintf(stderr, "ERROR: %x at pc %u could not be executed.\n",
-              cpu->opcode.instruction, cpu->pc);
-      break;
-    }
-  }
+  return cpu_error(cpu);
 }

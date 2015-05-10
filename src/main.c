@@ -27,14 +27,9 @@ int main(int argc, char* args[]) {
   uint32_t start_tick;
   uint32_t frame_speed;
   SDL_Event event;
-  while (true) {
+  bool running = true;
+  while (running) {
     start_tick = SDL_GetTicks();
-
-    if (SDL_PollEvent(&event)) {
-      if (event.type == SDL_QUIT) {
-        break;
-      }
-    }
 
     cpu_cycle(&cpu);
     if (cpu.draw) {
@@ -46,8 +41,14 @@ int main(int argc, char* args[]) {
     if (frame_speed < MILLISECONDS_PER_CYCLE) {
       SDL_Delay(MILLISECONDS_PER_CYCLE - frame_speed);
     }
-  }
-  display_cleanup(&display);
 
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_QUIT) {
+        running = false;
+      }
+    }
+  }
+  
+  display_cleanup(&display);
   return 0;
 }

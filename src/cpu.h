@@ -20,8 +20,8 @@ struct cpu {
   uint16_t stack[16];
   uint16_t sp;
 
-  uint16_t sound_timer;
-  uint16_t delay_timer;
+  uint8_t sound_timer;
+  uint8_t delay_timer;
 };
 
 int cpu_init(struct cpu* cpu, char* filename);
@@ -29,5 +29,3 @@ void cpu_fetch(struct cpu* cpu);
 void cpu_execute(struct cpu* cpu);
 void cpu_update_timers(struct cpu* cpu);
 void cpu_cycle(struct cpu* cpu);
-
-void cpu_skip(struct cpu* cpu, bool expression);
