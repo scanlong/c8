@@ -6,44 +6,7 @@
 #include <time.h>
 
 #include "SDL.h"
-
-const uint8_t font[80] = {
-  0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-  0x20, 0x60, 0x20, 0x20, 0x70, // 1
-  0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-  0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-  0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-  0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-  0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-  0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-  0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-  0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-  0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-  0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-  0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-  0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-  0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-  0xF0, 0x80, 0xF0, 0x80, 0x80  // F
-};
-
-const SDL_Scancode key_map[16] = {
-    SDL_SCANCODE_1,
-    SDL_SCANCODE_2,
-    SDL_SCANCODE_3,
-    SDL_SCANCODE_4,
-    SDL_SCANCODE_Q,
-    SDL_SCANCODE_W,
-    SDL_SCANCODE_E,
-    SDL_SCANCODE_R,
-    SDL_SCANCODE_A,
-    SDL_SCANCODE_S,
-    SDL_SCANCODE_D,
-    SDL_SCANCODE_F,
-    SDL_SCANCODE_Z,
-    SDL_SCANCODE_X,
-    SDL_SCANCODE_C,
-    SDL_SCANCODE_V
-};
+#include "constant.h"
 
 int cpu_init(struct cpu* cpu, char* filename) {
   FILE* game = fopen(filename, "rb");
@@ -75,7 +38,8 @@ int cpu_init(struct cpu* cpu, char* filename) {
 }
 
 void cpu_fetch(struct cpu* cpu) {
-  cpu->opcode.instruction = cpu->memory[cpu->pc] << 8 | cpu->memory[cpu->pc + 1];
+  cpu->opcode.instruction =
+      cpu->memory[cpu->pc] << 8 | cpu->memory[cpu->pc + 1];
 }
 
 void cpu_update_timers(struct cpu* cpu) {
@@ -145,24 +109,24 @@ void cpu_execute(struct cpu* cpu) {
       break;
     case ADD_X_Y: {
       uint16_t result = *vx + *vy;
-      cpu->v[0xF] = result > 255;
+      cpu->v[CARRY_REGISTER] = result > 255;
       *vx = (uint8_t)result;
       break;
     }
     case SUB_X_Y:
-      cpu->v[0xF] = *vx > *vy;
+      cpu->v[CARRY_REGISTER] = *vx > *vy;
       *vx -= *vy;
       break;
     case SHR_X_Y:
-      cpu->v[0xF] = *vx & 1;
+      cpu->v[CARRY_REGISTER] = *vx & 1;
       *vx >>= 2;
       break;
     case SUBN_X_Y:
-      cpu->v[0xF] = *vy > *vx;
+      cpu->v[CARRY_REGISTER] = *vy > *vx;
       *vx = *vy - *vx;
       break;
     case SHL_X_Y:
-      cpu->v[0xF] = (bool)(*vx & 0x80);
+      cpu->v[CARRY_REGISTER] = (bool)(*vx & 0x80);
       *vx <<= 2;
       break;
     case SNE_X_Y:
@@ -178,7 +142,7 @@ void cpu_execute(struct cpu* cpu) {
       *vx = (rand() % 256) & cpu->opcode.kk;
       break;
     case DRW_X_Y_N:
-      cpu->v[0xF] = 0;
+      cpu->v[CARRY_REGISTER] = 0;
       for (int y = 0; y < cpu->opcode.n; y++) {
         for (int x = 0; x < 8; x++) {
           uint8_t pixel = cpu->memory[cpu->i + y];
@@ -186,9 +150,11 @@ void cpu_execute(struct cpu* cpu) {
             int index = (*vx + x) % SCREEN_WIDTH +
                         ((*vy + y) % SCREEN_HEIGHT) * SCREEN_WIDTH;
             if (cpu->pixels[index] == ON_COLOR) {
-              cpu->v[0xF] = 1;
+              cpu->v[CARRY_REGISTER] = 1;
               cpu->pixels[index] = OFF_COLOR;
-            } else cpu->pixels[index] = ON_COLOR;
+            } else {
+              cpu->pixels[index] = ON_COLOR;
+            }
             cpu->draw = true;
           }
         }
@@ -234,7 +200,7 @@ void cpu_execute(struct cpu* cpu) {
         cpu->memory[cpu->i + i] = cpu->v[i];
       }
       break;
-    case LD_X_I:{
+    case LD_X_I: {
       for (int i = 0; i <= cpu->opcode.x; i++) {
         cpu->v[i] = cpu->memory[cpu->i + i];
       }
