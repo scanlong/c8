@@ -1,7 +1,7 @@
 C CHIP-8 Emulator (c8)
 ======================
 
-c8 is a CHIP-8 emulator written in C11 and SDL2. CHIP-8 is an interpreted programming language, developed by Joseph Weisbecker. It was initially used on the COSMAC VIP and Telmac 1800 8-bit microcomputers in the mid-1970s. CHIP-8 programs are run on a CHIP-8 virtual machine. It was made to allow video games to be more easily programmed for said computers.
+<p align="center"><img src="http://a.pomf.se/zyzsak.png"></p> c8 is a CHIP-8 emulator written in C11 and SDL2. CHIP-8 is an interpreted programming language, developed by Joseph Weisbecker. It was initially used on the COSMAC VIP and Telmac 1800 8-bit microcomputers in the mid-1970s. CHIP-8 programs are run on a CHIP-8 virtual machine. It was made to allow video games to be more easily programmed for said computers.
 
 Dependencies
 ------------
