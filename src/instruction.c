@@ -59,7 +59,7 @@ void cpu_draw(struct cpu* cpu) {
     for (int x = 0; x < 8; x++) {
       uint8_t pixel = cpu->memory[cpu->i + y];
       if (pixel & (0x80 >> x)) {
-        int index =
+        size_t index =
             (cpu->v[cpu->opcode.x] + x) % SCREEN_WIDTH +
             ((cpu->v[cpu->opcode.y] + y) % SCREEN_HEIGHT) * SCREEN_WIDTH;
         if (cpu->pixels[index] == ON_COLOR) {
@@ -76,7 +76,7 @@ void cpu_draw(struct cpu* cpu) {
 
 void cpu_wait_key_press(struct cpu* cpu) {
   cpu->pc -= 2;
-  for (int i = 0; i < 16; i++) {
+  for (size_t i = 0; i < 16; i++) {
     if (SDL_GetKeyboardState(NULL)[key_map[i]]) {
       cpu->v[cpu->opcode.x] = i;
       cpu->pc += 2;
@@ -90,21 +90,17 @@ void cpu_assign_i(struct cpu* cpu, uint16_t value) {
 }
 
 void cpu_store_bcd(struct cpu* cpu) {
-  cpu->memory[cpu->i] = cpu->v[cpu->opcode.x] / 100;
+  cpu->memory[cpu->i]     = cpu->v[cpu->opcode.x] / 100;
   cpu->memory[cpu->i + 1] = (cpu->v[cpu->opcode.x] / 10) % 10;
   cpu->memory[cpu->i + 2] = cpu->v[cpu->opcode.x] % 10;
 }
 
 void cpu_copy_to_memory(struct cpu* cpu) {
-  for (int i = 0; i <= cpu->opcode.x; i++) {
-    cpu->memory[cpu->i + i] = cpu->v[i];
-  }
+  memcpy(cpu->memory + cpu->i, cpu->v, cpu->opcode.x + 1);
 }
 
 void cpu_copy_from_memory(struct cpu* cpu) {
-  for (int i = 0; i <= cpu->opcode.x; i++) {
-    cpu->v[i] = cpu->memory[cpu->i + i];
-  }
+  memcpy(cpu->v, cpu->memory + cpu->i, cpu->opcode.x + 1);
 }
 
 void cpu_assign_delay_timer(struct cpu* cpu, uint8_t value) {
