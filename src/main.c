@@ -7,7 +7,7 @@
 int main(int argc, char* args[]) {
   if (argc != 2) {
     printf("usage: c8 game\n");
-    printf("  game: Chip8 bianry file to play\n");
+    printf("  game: Chip8 binary file to play\n");
     return -1;
   }
   char* filename = args[1];
